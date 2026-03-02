@@ -1,5 +1,6 @@
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
+import SavedJob from "../models/SavedJob.js";
 
 const mapEmploymentStatus = (jobType) => {
   const map = {
@@ -217,6 +218,7 @@ export const deleteJob = async (req, res) => {
 
     await Promise.all([
       Application.deleteMany({ job: job._id }),
+      SavedJob.deleteMany({ job: job._id }),
       job.deleteOne()
     ]);
 

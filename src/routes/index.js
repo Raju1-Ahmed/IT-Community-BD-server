@@ -6,6 +6,7 @@ import applicationRoutes from "./applicationRoutes.js";
 import adminRoutes from "./adminRoutes.js";
 import contactRoutes from "./contactRoutes.js";
 import userRoutes from "./userRoutes.js";
+import savedJobRoutes from "./savedJobRoutes.js";
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use("/applications", applicationRoutes);
 router.use("/admin", adminRoutes);
 router.use("/contact", contactRoutes);
 router.use("/users", userRoutes);
+router.use("/saved-jobs", savedJobRoutes);
 
 export default router;
