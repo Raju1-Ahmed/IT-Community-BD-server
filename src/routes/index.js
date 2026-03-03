@@ -7,6 +7,7 @@ import adminRoutes from "./adminRoutes.js";
 import contactRoutes from "./contactRoutes.js";
 import userRoutes from "./userRoutes.js";
 import savedJobRoutes from "./savedJobRoutes.js";
+import premiumRoutes from "./premiumRoutes.js";
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use("/admin", adminRoutes);
 router.use("/contact", contactRoutes);
 router.use("/users", userRoutes);
 router.use("/saved-jobs", savedJobRoutes);
+router.use("/premium", premiumRoutes);
 
 export default router;
