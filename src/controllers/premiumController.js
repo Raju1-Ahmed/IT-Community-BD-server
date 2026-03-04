@@ -36,10 +36,38 @@ export const upsertMyPremiumProfile = async (req, res) => {
     const payload = {
       headline: req.body.headline,
       summary: req.body.summary,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      fatherName: req.body.fatherName,
+      motherName: req.body.motherName,
+      dateOfBirth: req.body.dateOfBirth,
+      gender: req.body.gender,
+      religion: req.body.religion,
+      maritalStatus: req.body.maritalStatus,
+      nationality: req.body.nationality,
+      divisionId: Number(req.body.divisionId) || 0,
+      divisionName: req.body.divisionName,
+      districtId: Number(req.body.districtId) || 0,
+      districtName: req.body.districtName,
+      upazilaId: Number(req.body.upazilaId) || 0,
+      upazilaName: req.body.upazilaName,
+      unionId: Number(req.body.unionId) || 0,
+      unionName: req.body.unionName,
+      nationalId: req.body.nationalId,
+      primaryMobile: req.body.primaryMobile,
+      secondaryMobile: req.body.secondaryMobile,
+      emergencyContact: req.body.emergencyContact,
+      primaryEmail: req.body.primaryEmail,
+      alternateEmail: req.body.alternateEmail,
+      bloodGroup: req.body.bloodGroup,
+      heightMeters: req.body.heightMeters,
+      weightKg: req.body.weightKg,
       preferredRole: req.body.preferredRole,
       expectedSalary: Number(req.body.expectedSalary) || 0,
       location: req.body.location,
       totalExperienceYears: Number(req.body.totalExperienceYears) || 0,
+      otherInfo: req.body.otherInfo,
+      accomplishment: req.body.accomplishment,
       skills: Array.isArray(req.body.skills)
         ? req.body.skills
         : String(req.body.skills || "")
@@ -47,6 +75,24 @@ export const upsertMyPremiumProfile = async (req, res) => {
             .map((s) => s.trim())
             .filter(Boolean)
     };
+
+    if (req.body.skillDetails) {
+      try {
+        const parsed = typeof req.body.skillDetails === "string" ? JSON.parse(req.body.skillDetails) : req.body.skillDetails;
+        payload.skillDetails = Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        payload.skillDetails = [];
+      }
+    }
+
+    if (req.body.academics) {
+      try {
+        const parsed = typeof req.body.academics === "string" ? JSON.parse(req.body.academics) : req.body.academics;
+        payload.academics = Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        payload.academics = [];
+      }
+    }
 
     if (req.body.experienceHistory) {
       try {

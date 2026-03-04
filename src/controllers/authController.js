@@ -8,6 +8,9 @@ const serializeUser = (user) => ({
   role: user.role,
   companyName: user.companyName,
   location: user.location,
+  jobCategory: user.jobCategory,
+  jobRole: user.jobRole,
+  jobSpecialization: user.jobSpecialization,
   skills: user.skills,
   phone: user.phone,
   bio: user.bio,
@@ -24,7 +27,7 @@ const serializeUser = (user) => ({
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role, companyName, location, skills } = req.body;
+    const { name, email, password, role, companyName, location, jobCategory, jobRole, jobSpecialization, skills } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: "Name, email, password are required" });
@@ -42,6 +45,9 @@ export const register = async (req, res) => {
       role: role || "seeker",
       companyName,
       location,
+      jobCategory,
+      jobRole,
+      jobSpecialization,
       skills: Array.isArray(skills) ? skills : []
     });
 
@@ -100,6 +106,9 @@ export const updateProfile = async (req, res) => {
       "name",
       "companyName",
       "location",
+      "jobCategory",
+      "jobRole",
+      "jobSpecialization",
       "skills",
       "phone",
       "bio",
