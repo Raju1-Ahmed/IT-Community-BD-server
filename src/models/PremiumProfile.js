@@ -40,6 +40,16 @@ const skillDetailSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const courseInternSchema = new mongoose.Schema(
+  {
+    type: { type: String, trim: true, default: "Course" },
+    name: { type: String, trim: true },
+    duration: { type: String, trim: true },
+    certificate: { type: String, trim: true }
+  },
+  { _id: false }
+);
+
 const premiumProfileSchema = new mongoose.Schema(
   {
     seeker: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
@@ -77,6 +87,7 @@ const premiumProfileSchema = new mongoose.Schema(
     location: { type: String, trim: true },
     skills: [{ type: String, trim: true }],
     skillDetails: [skillDetailSchema],
+    coursesOrInternships: [courseInternSchema],
     academics: [academicSchema],
     otherInfo: { type: String, trim: true },
     accomplishment: { type: String, trim: true },

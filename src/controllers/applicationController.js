@@ -57,29 +57,6 @@ export const getEmployerApplications = async (req, res) => {
   }
 };
 
-export const getJobApplications = async (req, res) => {
-  try {
-    const { id: jobId } = req.params;
-
-    const job = await Job.findById(jobId);
-    if (!job) {
-      return res.status(404).json({ success: false, message: "Job not found" });
-    }
-
-    if (String(job.postedBy) !== String(req.user._id) && req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Not allowed" });
-    }
-
-    const applications = await Application.find({ job: jobId })
-      .populate("candidate", "name email location skills")
-      .sort({ createdAt: -1 });
-
-    return res.json({ success: true, count: applications.length, applications });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 export const updateApplicationStatus = async (req, res) => {
   try {
     const { id: applicationId } = req.params;

@@ -22,7 +22,13 @@ const serializeUser = (user) => ({
   currentPosition: user.currentPosition,
   experienceYears: user.experienceYears,
   expectedSalary: user.expectedSalary,
-  dateOfBirth: user.dateOfBirth
+  dateOfBirth: user.dateOfBirth,
+  experience: user.experience,
+  projects: user.projects,
+  educationEntries: user.educationEntries,
+  languages: user.languages,
+  certifications: user.certifications,
+  volunteer: user.volunteer
 });
 
 export const register = async (req, res) => {
@@ -119,7 +125,13 @@ export const updateProfile = async (req, res) => {
       "currentPosition",
       "experienceYears",
       "expectedSalary",
-      "dateOfBirth"
+      "dateOfBirth",
+      "experience",
+      "projects",
+      "educationEntries",
+      "languages",
+      "certifications",
+      "volunteer"
     ];
 
     const payload = {};
@@ -140,6 +152,20 @@ export const updateProfile = async (req, res) => {
 
     if (payload.skills && !Array.isArray(payload.skills)) {
       return res.status(400).json({ success: false, message: "Skills must be array or comma-separated string" });
+    }
+
+    const jsonArrayFields = ["experience", "projects", "educationEntries", "languages", "certifications", "volunteer"];
+    for (const field of jsonArrayFields) {
+      if (typeof payload[field] === "string") {
+        try {
+          payload[field] = JSON.parse(payload[field]);
+        } catch (_error) {
+          return res.status(400).json({ success: false, message: `${field} must be valid JSON` });
+        }
+      }
+      if (payload[field] !== undefined && !Array.isArray(payload[field])) {
+        return res.status(400).json({ success: false, message: `${field} must be an array` });
+      }
     }
 
     if (payload.experienceYears !== undefined) {

@@ -105,10 +105,28 @@ export const upsertMyPremiumProfile = async (req, res) => {
       }
     }
 
+    if (req.body.coursesOrInternships) {
+      try {
+        const parsed = typeof req.body.coursesOrInternships === "string"
+          ? JSON.parse(req.body.coursesOrInternships)
+          : req.body.coursesOrInternships;
+        payload.coursesOrInternships = Array.isArray(parsed)
+          ? parsed.map((item) => ({
+              type: String(item?.type || "Course").trim() || "Course",
+              name: String(item?.name || "").trim(),
+              duration: String(item?.duration || "").trim(),
+              certificate: String(item?.certificate || "").trim()
+            }))
+          : [];
+      } catch (_error) {
+        payload.coursesOrInternships = [];
+      }
+    }
+
     const profile = await PremiumProfile.findOneAndUpdate(
       { seeker: req.user._id },
       { $set: payload, $setOnInsert: { seeker: req.user._id } },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
 
     if (["rejected", "expired"].includes(profile.status)) {
@@ -128,10 +146,45 @@ export const uploadPremiumDocuments = async (req, res) => {
 
     const filePath = (file) => (file ? `/uploads/premium/${file.filename}` : null);
 
-    if (req.files?.cv?.[0]) profile.cvUrl = filePath(req.files.cv[0]);
-    if (req.files?.experienceLetter?.[0]) profile.experienceLetterUrl = filePath(req.files.experienceLetter[0]);
-    if (req.files?.companyIdCard?.[0]) profile.companyIdCardUrl = filePath(req.files.companyIdCard[0]);
-    if (req.files?.additionalDoc?.[0]) profile.additionalDocUrl = filePath(req.files.additionalDoc[0]);
+    const filesArray = Array.isArray(req.files) ? req.files : [];
+    const getByField = (fieldName) => {
+      const fromArray = filesArray.find((file) => file.fieldname === fieldName);
+      if (fromArray) return fromArray;
+      if (req.files?.[fieldName]?.[0]) return req.files[fieldName][0];
+      return null;
+    };
+
+    const cv = getByField("cv");
+    const experienceLetter = getByField("experienceLetter");
+    const companyIdCard = getByField("companyIdCard");
+    const additionalDoc = getByField("additionalDoc");
+
+    if (cv) profile.cvUrl = filePath(cv);
+    if (experienceLetter) profile.experienceLetterUrl = filePath(experienceLetter);
+    if (companyIdCard) profile.companyIdCardUrl = filePath(companyIdCard);
+    if (additionalDoc) profile.additionalDocUrl = filePath(additionalDoc);
+
+    const certFiles = filesArray.filter((file) => file.fieldname.startsWith("courseInternCertificate_"));
+    if (certFiles.length > 0) {
+      const items = Array.isArray(profile.coursesOrInternships)
+        ? profile.coursesOrInternships.map((item) =>
+            typeof item?.toObject === "function" ? item.toObject() : { ...item }
+          )
+        : [];
+
+      for (const certFile of certFiles) {
+        const idxText = certFile.fieldname.replace("courseInternCertificate_", "");
+        const idx = Number.parseInt(idxText, 10);
+        if (Number.isNaN(idx) || idx < 0) continue;
+
+        if (!items[idx]) {
+          items[idx] = { type: "Course", name: "", duration: "", certificate: "" };
+        }
+        items[idx].certificate = filePath(certFile);
+      }
+
+      profile.coursesOrInternships = items;
+    }
 
     await profile.save();
 
@@ -164,116 +217,6 @@ export const submitPremiumProfile = async (req, res) => {
     await profile.save();
 
     return res.json({ success: true, message: "Profile submitted. Complete payment to continue.", profile });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const initiatePremiumPayment = async (req, res) => {
-  try {
-    const { method } = req.body;
-    const profile = await getOrCreatePremiumProfile(req.user._id);
-
-    if (profile.status !== "pending_payment" && profile.status !== "expired") {
-      return res.status(400).json({ success: false, message: "Profile is not ready for payment" });
-    }
-
-    const payment = await PremiumPayment.create({
-      premiumProfile: profile._id,
-      seeker: req.user._id,
-      amount: profile.packageAmount || 99,
-      currency: "BDT",
-      method: method || "manual",
-      status: "initiated"
-    });
-
-    return res.json({
-      success: true,
-      message: "Payment initiated. Complete payment and submit transaction reference.",
-      payment
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const submitPremiumPayment = async (req, res) => {
-  try {
-    const { paymentId, transactionRef, note } = req.body;
-
-    if (!paymentId || !transactionRef) {
-      return res.status(400).json({ success: false, message: "paymentId and transactionRef are required" });
-    }
-
-    const payment = await PremiumPayment.findById(paymentId);
-    if (!payment || String(payment.seeker) !== String(req.user._id)) {
-      return res.status(404).json({ success: false, message: "Payment not found" });
-    }
-
-    if (req.file) {
-      payment.paymentProofUrl = `/uploads/premium/${req.file.filename}`;
-    }
-
-    payment.transactionRef = transactionRef;
-    payment.note = note || "";
-    payment.status = "submitted";
-    await payment.save();
-
-    const profile = await PremiumProfile.findById(payment.premiumProfile);
-    profile.status = "payment_submitted";
-    await profile.save();
-
-    return res.json({ success: true, message: "Payment submitted. Awaiting admin verification.", payment, profile });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const reActivatePremiumProfile = async (req, res) => {
-  try {
-    const profile = await getOrCreatePremiumProfile(req.user._id);
-    if (!profile.cvUrl || !profile.experienceLetterUrl || !profile.companyIdCardUrl) {
-      return res.status(400).json({
-        success: false,
-        message: "Required documents missing. Please upload before reactivation."
-      });
-    }
-
-    profile.status = "pending_payment";
-    profile.reviewNote = "";
-    await profile.save();
-
-    return res.json({ success: true, message: "Reactivation started. Please complete payment.", profile });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const listPremiumProfilesForEmployer = async (_req, res) => {
-  try {
-    await expirePremiumProfiles();
-
-    const profiles = await PremiumProfile.find({ status: "approved" })
-      .populate("seeker", "name email profileImage location currentPosition skills experienceYears")
-      .sort({ approvedAt: -1 });
-
-    return res.json({ success: true, count: profiles.length, profiles });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const getPremiumProfilePublicById = async (req, res) => {
-  try {
-    await expirePremiumProfiles();
-    const profile = await PremiumProfile.findById(req.params.id)
-      .populate("seeker", "name email profileImage location currentPosition skills experienceYears bio education linkedin github portfolio");
-
-    if (!profile || profile.status !== "approved") {
-      return res.status(404).json({ success: false, message: "Premium profile not found" });
-    }
-
-    return res.json({ success: true, profile });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -367,6 +310,43 @@ export const adminReviewPremiumProfile = async (req, res) => {
     await profile.save();
 
     return res.json({ success: true, message: `Profile ${action}d`, profile });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const hasAnyExpertData = (profile) => {
+  const textFields = [
+    profile.headline,
+    profile.summary,
+    profile.firstName,
+    profile.lastName,
+    profile.preferredRole,
+    profile.location
+  ];
+
+  if (textFields.some((value) => String(value || "").trim().length > 0)) return true;
+  if ((profile.totalExperienceYears || 0) > 0) return true;
+  if (Array.isArray(profile.skills) && profile.skills.length > 0) return true;
+  if (Array.isArray(profile.academics) && profile.academics.length > 0) return true;
+  if (Array.isArray(profile.experienceHistory) && profile.experienceHistory.length > 0) return true;
+  if (Array.isArray(profile.coursesOrInternships) && profile.coursesOrInternships.length > 0) return true;
+  if (profile.cvUrl || profile.experienceLetterUrl || profile.companyIdCardUrl || profile.additionalDocUrl) return true;
+
+  return false;
+};
+
+export const listExpertiesProfiles = async (_req, res) => {
+  try {
+    const profiles = await PremiumProfile.find()
+      .populate("seeker", "name email profileImage location currentPosition role")
+      .sort({ updatedAt: -1 });
+
+    const filtered = profiles.filter(
+      (profile) => profile?.seeker?.role === "seeker" && hasAnyExpertData(profile)
+    );
+
+    return res.json({ success: true, count: filtered.length, profiles: filtered });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

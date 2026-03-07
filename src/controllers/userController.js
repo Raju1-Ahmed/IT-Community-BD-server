@@ -3,7 +3,7 @@ import User from "../models/User.js";
 export const getCandidateProfile = async (req, res) => {
   try {
     const candidate = await User.findById(req.params.id).select(
-      "name email role location phone skills currentPosition experienceYears education bio github linkedin portfolio profileImage dateOfBirth expectedSalary"
+      "name email role location phone skills currentPosition experienceYears education bio github linkedin portfolio profileImage dateOfBirth expectedSalary experience projects educationEntries languages certifications volunteer"
     );
 
     if (!candidate) {

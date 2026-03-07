@@ -23,7 +23,48 @@ const userSchema = new mongoose.Schema(
     currentPosition: { type: String, trim: true },
     experienceYears: { type: Number, min: 0, default: 0 },
     expectedSalary: { type: Number, min: 0, default: 0 },
-    dateOfBirth: { type: Date }
+    dateOfBirth: { type: Date },
+    experience: [
+      {
+        company: { type: String, trim: true, default: "" },
+        role: { type: String, trim: true, default: "" },
+        duration: { type: String, trim: true, default: "" },
+        desc: { type: String, trim: true, default: "" }
+      }
+    ],
+    projects: [
+      {
+        title: { type: String, trim: true, default: "" },
+        link: { type: String, trim: true, default: "" },
+        description: { type: String, trim: true, default: "" }
+      }
+    ],
+    educationEntries: [
+      {
+        institute: { type: String, trim: true, default: "" },
+        degree: { type: String, trim: true, default: "" },
+        year: { type: String, trim: true, default: "" }
+      }
+    ],
+    languages: [
+      {
+        lang: { type: String, trim: true, default: "" },
+        level: { type: String, trim: true, default: "" }
+      }
+    ],
+    certifications: [
+      {
+        title: { type: String, trim: true, default: "" },
+        year: { type: String, trim: true, default: "" }
+      }
+    ],
+    volunteer: [
+      {
+        role: { type: String, trim: true, default: "" },
+        organization: { type: String, trim: true, default: "" },
+        details: { type: String, trim: true, default: "" }
+      }
+    ]
   },
   { timestamps: true }
 );
