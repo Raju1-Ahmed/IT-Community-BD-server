@@ -3,8 +3,9 @@ import {
   adminPremiumQueue,
   adminReviewPremiumProfile,
   adminVerifyPayment,
+  getExpertiseProfileById,
   getMyPremiumProfile,
-  listExpertiesProfiles,
+  listExpertiseProfiles,
   submitPremiumProfile,
   uploadPremiumDocuments,
   upsertMyPremiumProfile
@@ -14,7 +15,8 @@ import { premiumUpload } from "../middleware/premiumUploadMiddleware.js";
 
 const router = express.Router();
 
-router.get("/experties", listExpertiesProfiles);
+router.get("/expertise", listExpertiseProfiles);
+router.get("/expertise/:id", getExpertiseProfileById);
 router.get("/me", protect, authorize("seeker"), getMyPremiumProfile);
 router.post("/me", protect, authorize("seeker"), upsertMyPremiumProfile);
 router.post(

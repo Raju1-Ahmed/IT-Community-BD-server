@@ -28,7 +28,8 @@ const serializeUser = (user) => ({
   educationEntries: user.educationEntries,
   languages: user.languages,
   certifications: user.certifications,
-  volunteer: user.volunteer
+  volunteer: user.volunteer,
+  categoryProfile: user.categoryProfile
 });
 
 export const register = async (req, res) => {
@@ -131,7 +132,8 @@ export const updateProfile = async (req, res) => {
       "educationEntries",
       "languages",
       "certifications",
-      "volunteer"
+      "volunteer",
+      "categoryProfile"
     ];
 
     const payload = {};
@@ -166,6 +168,20 @@ export const updateProfile = async (req, res) => {
       if (payload[field] !== undefined && !Array.isArray(payload[field])) {
         return res.status(400).json({ success: false, message: `${field} must be an array` });
       }
+    }
+
+    if (typeof payload.categoryProfile === "string") {
+      try {
+        payload.categoryProfile = JSON.parse(payload.categoryProfile);
+      } catch (_error) {
+        return res.status(400).json({ success: false, message: "categoryProfile must be valid JSON" });
+      }
+    }
+    if (
+      payload.categoryProfile !== undefined &&
+      (typeof payload.categoryProfile !== "object" || payload.categoryProfile === null || Array.isArray(payload.categoryProfile))
+    ) {
+      return res.status(400).json({ success: false, message: "categoryProfile must be an object" });
     }
 
     if (payload.experienceYears !== undefined) {

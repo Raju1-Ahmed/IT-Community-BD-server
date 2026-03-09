@@ -336,10 +336,13 @@ const hasAnyExpertData = (profile) => {
   return false;
 };
 
-export const listExpertiesProfiles = async (_req, res) => {
+export const listExpertiseProfiles = async (_req, res) => {
   try {
     const profiles = await PremiumProfile.find()
-      .populate("seeker", "name email profileImage location currentPosition role")
+      .populate(
+        "seeker",
+        "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization"
+      )
       .sort({ updatedAt: -1 });
 
     const filtered = profiles.filter(
@@ -347,6 +350,26 @@ export const listExpertiesProfiles = async (_req, res) => {
     );
 
     return res.json({ success: true, count: filtered.length, profiles: filtered });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Backward-compatible alias for older imports/usages.
+export const listExpertiesProfiles = listExpertiseProfiles;
+
+export const getExpertiseProfileById = async (req, res) => {
+  try {
+    const profile = await PremiumProfile.findById(req.params.id).populate(
+      "seeker",
+      "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization"
+    );
+
+    if (!profile || profile?.seeker?.role !== "seeker" || !hasAnyExpertData(profile)) {
+      return res.status(404).json({ success: false, message: "Expertise profile not found" });
+    }
+
+    return res.json({ success: true, profile });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

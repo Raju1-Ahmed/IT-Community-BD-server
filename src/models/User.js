@@ -64,7 +64,8 @@ const userSchema = new mongoose.Schema(
         organization: { type: String, trim: true, default: "" },
         details: { type: String, trim: true, default: "" }
       }
-    ]
+    ],
+    categoryProfile: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
   { timestamps: true }
 );
