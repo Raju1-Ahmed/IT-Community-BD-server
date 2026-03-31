@@ -341,7 +341,7 @@ export const listExpertiseProfiles = async (_req, res) => {
     const profiles = await PremiumProfile.find()
       .populate(
         "seeker",
-        "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization"
+        "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization projects"
       )
       .sort({ updatedAt: -1 });
 
@@ -362,7 +362,7 @@ export const getExpertiseProfileById = async (req, res) => {
   try {
     const profile = await PremiumProfile.findById(req.params.id).populate(
       "seeker",
-      "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization"
+      "name email profileImage location currentPosition role skills bio experienceYears expectedSalary phone jobCategory jobRole jobSpecialization projects"
     );
 
     if (!profile || profile?.seeker?.role !== "seeker" || !hasAnyExpertData(profile)) {
