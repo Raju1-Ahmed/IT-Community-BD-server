@@ -18,6 +18,7 @@ const jobSchema = new mongoose.Schema(
     responsibilities: { type: String, trim: true },
     benefits: { type: String, trim: true },
     workplace: { type: String, enum: ["office", "remote", "hybrid"], default: "office" },
+    genderPreference: { type: String, enum: ["any", "male", "female"], default: "any" },
     businessArea: { type: String, trim: true },
     employmentStatusText: { type: String, trim: true, default: "Full Time" },
     encourageVideoCv: { type: Boolean, default: false },

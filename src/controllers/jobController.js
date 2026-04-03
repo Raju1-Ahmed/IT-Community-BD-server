@@ -33,6 +33,7 @@ export const createJob = async (req, res) => {
       benefits,
       workplace,
       businessArea,
+      genderPreference,
       encourageVideoCv,
       skills,
       description
@@ -67,6 +68,7 @@ export const createJob = async (req, res) => {
       benefits,
       workplace: workplace || "office",
       businessArea,
+      genderPreference: genderPreference || "any",
       employmentStatusText: mapEmploymentStatus(jobType),
       encourageVideoCv: Boolean(encourageVideoCv),
       skills: Array.isArray(skills) ? skills : [],
@@ -82,7 +84,7 @@ export const createJob = async (req, res) => {
 
 export const getJobs = async (req, res) => {
   try {
-    const { q, location, jobType, experienceLevel } = req.query;
+    const { q, location, jobType, experienceLevel, genderPreference } = req.query;
 
     const filter = { status: "active" };
 
@@ -96,6 +98,7 @@ export const getJobs = async (req, res) => {
     if (location) filter.location = { $regex: location, $options: "i" };
     if (jobType) filter.jobType = jobType;
     if (experienceLevel) filter.experienceLevel = experienceLevel;
+    if (genderPreference) filter.genderPreference = genderPreference;
 
     const jobs = await Job.find(filter)
       .populate("postedBy", "name email role companyName")
@@ -158,6 +161,7 @@ export const updateJob = async (req, res) => {
       "responsibilities",
       "benefits",
       "workplace",
+      "genderPreference",
       "businessArea",
       "encourageVideoCv",
       "skills",
