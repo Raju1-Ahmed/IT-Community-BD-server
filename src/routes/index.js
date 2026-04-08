@@ -9,6 +9,7 @@ import userRoutes from "./userRoutes.js";
 import savedJobRoutes from "./savedJobRoutes.js";
 import premiumRoutes from "./premiumRoutes.js";
 import geoRoutes from "./geoRoutes.js";
+import messageRoutes from "./messageRoutes.js";
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use("/users", userRoutes);
 router.use("/saved-jobs", savedJobRoutes);
 router.use("/premium", premiumRoutes);
 router.use("/geo", geoRoutes);
+router.use("/messages", messageRoutes);
 
 export default router;

@@ -10,13 +10,13 @@ import {
   uploadPremiumDocuments,
   upsertMyPremiumProfile
 } from "../controllers/premiumController.js";
-import { authorize, protect } from "../middleware/authMiddleware.js";
+import { authorize, optionalProtect, protect } from "../middleware/authMiddleware.js";
 import { premiumUpload } from "../middleware/premiumUploadMiddleware.js";
 
 const router = express.Router();
 
 router.get("/expertise", listExpertiseProfiles);
-router.get("/expertise/:id", getExpertiseProfileById);
+router.get("/expertise/:id", optionalProtect, getExpertiseProfileById);
 router.get("/me", protect, authorize("seeker"), getMyPremiumProfile);
 router.post("/me", protect, authorize("seeker"), upsertMyPremiumProfile);
 router.post(

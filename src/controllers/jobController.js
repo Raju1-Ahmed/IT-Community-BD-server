@@ -1,6 +1,7 @@
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import SavedJob from "../models/SavedJob.js";
+import JobView from "../models/JobView.js";
 
 const mapEmploymentStatus = (jobType) => {
   const map = {
@@ -12,6 +13,68 @@ const mapEmploymentStatus = (jobType) => {
   };
   return map[jobType] || "Full Time";
 };
+
+const trackJobView = async ({ job, viewer }) => {
+  if (!job?._id || !viewer?._id) return;
+  if (String(job.postedBy) === String(viewer._id)) return;
+
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const existing = await JobView.findOne({
+    job: job._id,
+    "viewer.viewerId": viewer._id,
+    lastViewedAt: { $gte: dayStart, $lt: dayEnd }
+  });
+
+  if (existing) {
+    existing.lastViewedAt = now;
+    existing.viewCount += 1;
+    existing.viewedDates = [...(existing.viewedDates || []), now];
+    existing.viewer = {
+      viewerId: viewer._id,
+      viewerName: viewer.name || "",
+      viewerEmail: viewer.email || "",
+      currentPosition: viewer.currentPosition || ""
+    };
+    await existing.save();
+    return;
+  }
+
+  await JobView.create({
+    job: job._id,
+    viewer: {
+      viewerId: viewer._id,
+      viewerName: viewer.name || "",
+      viewerEmail: viewer.email || "",
+      currentPosition: viewer.currentPosition || ""
+    },
+    firstViewedAt: now,
+    lastViewedAt: now,
+    viewCount: 1,
+    viewedDates: [now]
+  });
+};
+
+const expandJobViewEvents = (logs, limit = 12) =>
+  logs
+    .flatMap((item) => {
+      const dates =
+        Array.isArray(item.viewedDates) && item.viewedDates.length > 0
+          ? item.viewedDates
+          : Array.from({ length: Number(item.viewCount || 0) || 1 }, () => item.lastViewedAt || item.createdAt);
+
+      return dates.map((viewedAt, index) => ({
+        id: `${String(item._id)}-${index}`,
+        viewerName: item?.viewer?.viewerName || "Viewer",
+        viewerEmail: item?.viewer?.viewerEmail || "",
+        currentPosition: item?.viewer?.currentPosition || "",
+        viewedAt
+      }));
+    })
+    .sort((a, b) => new Date(b.viewedAt || 0).getTime() - new Date(a.viewedAt || 0).getTime())
+    .slice(0, limit);
 
 export const createJob = async (req, res) => {
   try {
@@ -116,6 +179,10 @@ export const getJobById = async (req, res) => {
 
     if (!job) {
       return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    if (req.user?._id) {
+      await trackJobView({ job, viewer: req.user });
     }
 
     return res.json({ success: true, job });
@@ -223,10 +290,75 @@ export const deleteJob = async (req, res) => {
     await Promise.all([
       Application.deleteMany({ job: job._id }),
       SavedJob.deleteMany({ job: job._id }),
+      JobView.deleteMany({ job: job._id }),
       job.deleteOne()
     ]);
 
     return res.json({ success: true, message: "Job deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getJobCandidateApplicationsAnalytics = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    if (String(job.postedBy) !== String(req.user._id) && req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Not allowed" });
+    }
+
+    const [applications, savedJobs, viewLogs] = await Promise.all([
+      Application.find({ job: job._id })
+        .populate(
+          "candidate",
+          "name email phone location skills currentPosition experienceYears jobCategory jobRole profileImage"
+        )
+        .sort({ createdAt: -1 }),
+      SavedJob.find({ job: job._id })
+        .populate("seeker", "name email currentPosition location profileImage")
+        .sort({ createdAt: -1 }),
+      JobView.find({ job: job._id }).sort({ lastViewedAt: -1 }).lean()
+    ]);
+
+    const totalViews = viewLogs.reduce((sum, item) => {
+      if (Array.isArray(item.viewedDates) && item.viewedDates.length > 0) {
+        return sum + item.viewedDates.length;
+      }
+      return sum + Number(item.viewCount || 0);
+    }, 0);
+
+    const uniqueViewers = new Set(
+      viewLogs.map((item) => String(item?.viewer?.viewerId || "")).filter(Boolean)
+    ).size;
+
+    const savedBy = savedJobs.map((item) => ({
+      id: String(item._id),
+      seekerId: String(item?.seeker?._id || ""),
+      name: item?.seeker?.name || "Candidate",
+      email: item?.seeker?.email || "",
+      currentPosition: item?.seeker?.currentPosition || "",
+      location: item?.seeker?.location || "",
+      savedAt: item.createdAt,
+      profileImage: item?.seeker?.profileImage || ""
+    }));
+
+    return res.json({
+      success: true,
+      job,
+      analytics: {
+        totalApplications: applications.length,
+        totalViews,
+        uniqueViewers,
+        savedCount: savedJobs.length,
+        recentViewEvents: expandJobViewEvents(viewLogs, 12),
+        savedBy
+      },
+      applications
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

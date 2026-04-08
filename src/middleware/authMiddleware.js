@@ -23,6 +23,27 @@ export const protect = async (req, res, next) => {
   }
 };
 
+export const optionalProtect = async (req, _res, next) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (user) {
+      req.user = user;
+    }
+  } catch (_error) {
+    // Ignore optional auth failures so public access still works.
+  }
+
+  next();
+};
+
 export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
