@@ -7,6 +7,7 @@ import {
   listForumPosts,
   reactToForumPost,
   shareForumPost,
+  updateForumPost,
   uploadForumAttachment
 } from "../controllers/forumController.js";
 import { authorize, optionalProtect, protect } from "../middleware/authMiddleware.js";
@@ -20,6 +21,7 @@ router.post("/posts", protect, authorize("seeker", "employer", "admin"), createF
 router.post("/posts/:postId/comments", protect, authorize("seeker", "employer", "admin"), addForumComment);
 router.post("/posts/:postId/reactions", protect, authorize("seeker", "employer", "admin"), reactToForumPost);
 router.post("/posts/:postId/share", optionalProtect, shareForumPost);
+router.patch("/posts/:postId", protect, authorize("seeker", "employer", "admin"), updateForumPost);
 router.delete("/posts/:postId", protect, authorize("seeker", "employer", "admin"), deleteForumPost);
 router.post(
   "/attachments",

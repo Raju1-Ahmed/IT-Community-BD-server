@@ -60,6 +60,13 @@ const serializePost = (post, currentUserId = null, currentUserRole = null) => {
     comments: comments.map(serializeComment),
     commentCount: comments.length,
     reactionSummary: buildReactionSummary(reactions),
+    reactionUsers: reactions
+      .map((reaction) => ({
+        id: String(reaction?.user?._id || reaction?.user || ""),
+        type: reaction?.type || "like",
+        user: serializeAuthor(reaction?.user)
+      }))
+      .filter((item) => item.id),
     currentUserReaction:
       currentUserId && reactions.find((reaction) => String(reaction?.user?._id || reaction?.user) === String(currentUserId))?.type
         ? reactions.find((reaction) => String(reaction?.user?._id || reaction?.user) === String(currentUserId)).type
@@ -74,10 +81,10 @@ const serializePost = (post, currentUserId = null, currentUserRole = null) => {
 };
 
 const populatePostQuery = (query) =>
-  query.populate("author", "name role companyName currentPosition profileImage").populate(
-    "comments.author",
-    "name role companyName currentPosition profileImage"
-  );
+  query
+    .populate("author", "name role companyName currentPosition profileImage")
+    .populate("comments.author", "name role companyName currentPosition profileImage")
+    .populate("reactions.user", "name role companyName currentPosition profileImage");
 
 export const getForumMeta = async (_req, res) => {
   return res.json({ success: true, tags: TAG_OPTIONS });
@@ -85,7 +92,18 @@ export const getForumMeta = async (_req, res) => {
 
 export const listForumPosts = async (req, res) => {
   try {
-    const posts = await populatePostQuery(ForumPost.find().sort({ createdAt: -1 }).limit(50));
+    const filters = {};
+
+    if (req.query.author === "me") {
+      if (!req.user?._id) {
+        return res.status(401).json({ success: false, message: "Login required" });
+      }
+      filters.author = req.user._id;
+    } else if (req.query.authorId && mongoose.Types.ObjectId.isValid(req.query.authorId)) {
+      filters.author = req.query.authorId;
+    }
+
+    const posts = await populatePostQuery(ForumPost.find(filters).sort({ createdAt: -1 }).limit(50));
     return res.json({
       success: true,
       posts: posts.map((post) => serializePost(post, req.user?._id || null, req.user?.role || null))
@@ -248,6 +266,52 @@ export const deleteForumPost = async (req, res) => {
 
     await post.deleteOne();
     return res.json({ success: true, message: "Post deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateForumPost = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.postId)) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+
+    const content = String(req.body.content || "").trim();
+    if (!content) {
+      return res.status(400).json({ success: false, message: "Post content is required" });
+    }
+
+    let attachments = [];
+    if (req.body.attachments) {
+      try {
+        const parsed = typeof req.body.attachments === "string" ? JSON.parse(req.body.attachments) : req.body.attachments;
+        attachments = Array.isArray(parsed) ? parsed.map(toAbsoluteAttachment) : [];
+      } catch (_error) {
+        attachments = [];
+      }
+    }
+
+    const post = await ForumPost.findById(req.params.postId).populate("author", "role");
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+
+    const isOwner = String(post.author?._id || post.author) === String(req.user._id);
+    if (!isOwner && req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Not allowed" });
+    }
+
+    post.content = content;
+    post.attachments = attachments;
+    await post.save();
+
+    const populatedPost = await populatePostQuery(ForumPost.findById(post._id));
+
+    return res.json({
+      success: true,
+      post: serializePost(populatedPost, req.user._id, req.user.role)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

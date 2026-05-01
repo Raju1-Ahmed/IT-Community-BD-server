@@ -2,6 +2,7 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import { emitConversationMessage } from "../socket/socketServer.js";
+import { isUserOnline } from "../socket/socketServer.js";
 
 const toAbsoluteAttachment = (attachment) => ({
   name: attachment?.name || "",
@@ -17,7 +18,9 @@ const serializeParticipant = (user) => ({
   role: user.role,
   profileImage: user.profileImage || "",
   currentPosition: user.currentPosition || "",
-  location: user.location || ""
+  location: user.location || "",
+  isOnline: isUserOnline(user._id),
+  lastSeen: user.lastSeen || null
 });
 
 const serializeMessage = (message, currentUserId) => ({
@@ -45,7 +48,7 @@ const resolveOtherParticipant = (conversation, currentUserId) =>
 export const listConversations = async (req, res) => {
   try {
     const conversations = await Conversation.find({ participants: req.user._id })
-      .populate("participants", "name email role profileImage currentPosition location")
+      .populate("participants", "name email role profileImage currentPosition location lastSeen")
       .sort({ lastMessageAt: -1, updatedAt: -1 });
 
     const items = conversations.map((conversation) => {
@@ -77,7 +80,7 @@ export const startConversation = async (req, res) => {
       return res.status(400).json({ success: false, message: "You cannot start a conversation with yourself" });
     }
 
-    const participant = await User.findById(participantId).select("name email role profileImage currentPosition location");
+    const participant = await User.findById(participantId).select("name email role profileImage currentPosition location lastSeen");
     if (!participant) {
       return res.status(404).json({ success: false, message: "Participant not found" });
     }
@@ -129,7 +132,7 @@ export const sendConversationMessage = async (req, res) => {
     const conversation = await Conversation.findOne({
       _id: req.params.conversationId,
       participants: req.user._id
-    }).populate("participants", "_id name email role profileImage currentPosition location");
+    }).populate("participants", "_id name email role profileImage currentPosition location lastSeen");
 
     if (!conversation) {
       return res.status(404).json({ success: false, message: "Conversation not found" });

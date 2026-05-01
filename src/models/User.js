@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     currentPosition: { type: String, trim: true },
     experienceYears: { type: Number, min: 0, default: 0 },
     expectedSalary: { type: Number, min: 0, default: 0 },
+    lastSeen: { type: Date },
     dateOfBirth: { type: Date },
     experience: [
       {
