@@ -1,2 +1,9 @@
 node_modules
 .env
+*.log
+*.err.log
+*.out.log
+*.lnk
+uploads/chat/
+uploads/forum/
+uploads/profiles/

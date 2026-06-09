@@ -4,7 +4,7 @@ const conversationSchema = new mongoose.Schema(
   {
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }],
     lastMessageText: { type: String, trim: true, default: "" },
-    lastMessageType: { type: String, enum: ["text", "file", "mixed"], default: "text" },
+    lastMessageType: { type: String, enum: ["text", "file", "mixed", "hire_invite"], default: "text" },
     lastMessageSender: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     lastMessageAt: { type: Date, default: null }
   },

@@ -1,5 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import PremiumProfile from "../models/PremiumProfile.js";
 import User from "../models/User.js";
 import { emitConversationMessage } from "../socket/socketServer.js";
 import { isUserOnline } from "../socket/socketServer.js";
@@ -31,11 +32,25 @@ const serializeMessage = (message, currentUserId) => ({
   text: message.text || "",
   type: message.type || "text",
   attachments: Array.isArray(message.attachments) ? message.attachments.map(toAbsoluteAttachment) : [],
+  hireInvite: message.hireInvite || null,
   seen: Array.isArray(message.seenBy)
     ? message.seenBy.some((item) => String(item?._id || item) === String(currentUserId))
     : false,
   createdAt: message.createdAt
 });
+
+const serializeConversation = (conversation, currentUserId) => {
+  const participant = resolveOtherParticipant(conversation, currentUserId) || conversation.participants[0];
+
+  return {
+    id: String(conversation._id),
+    participant: serializeParticipant(participant),
+    lastMessageText: conversation.lastMessageText || "",
+    lastMessageType: conversation.lastMessageType || "text",
+    lastMessageAt: conversation.lastMessageAt,
+    unreadCount: 0
+  };
+};
 
 const findConversationForUsers = async (userId, participantId) =>
   Conversation.findOne({
@@ -51,17 +66,7 @@ export const listConversations = async (req, res) => {
       .populate("participants", "name email role profileImage currentPosition location lastSeen")
       .sort({ lastMessageAt: -1, updatedAt: -1 });
 
-    const items = conversations.map((conversation) => {
-      const participant = resolveOtherParticipant(conversation, req.user._id) || req.user;
-      return {
-        id: String(conversation._id),
-        participant: serializeParticipant(participant),
-        lastMessageText: conversation.lastMessageText || "",
-        lastMessageType: conversation.lastMessageType || "text",
-        lastMessageAt: conversation.lastMessageAt,
-        unreadCount: 0
-      };
-    });
+    const items = conversations.map((conversation) => serializeConversation(conversation, req.user._id));
 
     return res.json({ success: true, conversations: items });
   } catch (error) {
@@ -182,6 +187,151 @@ export const sendConversationMessage = async (req, res) => {
     });
 
     return res.status(201).json({ success: true, message: serialized });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const sendHireInvite = async (req, res) => {
+  try {
+    if (!["employer", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: "Only employers can send hire invites" });
+    }
+
+    const expertiseProfileId = req.body.expertiseProfileId || req.params.expertiseProfileId;
+    if (!expertiseProfileId) {
+      return res.status(400).json({ success: false, message: "expertiseProfileId is required" });
+    }
+
+    const profile = await PremiumProfile.findById(expertiseProfileId).populate(
+      "seeker",
+      "name email role profileImage currentPosition location lastSeen jobRole jobCategory"
+    );
+
+    if (!profile?.seeker) {
+      return res.status(404).json({ success: false, message: "Expertise profile not found" });
+    }
+
+    const title = String(req.body.title || "").trim();
+    if (!title) {
+      return res.status(400).json({ success: false, message: "Hiring title is required" });
+    }
+
+    let conversation = await findConversationForUsers(req.user._id, profile.seeker._id);
+    if (!conversation) {
+      conversation = await Conversation.create({
+        participants: [req.user._id, profile.seeker._id]
+      });
+    }
+
+    await conversation.populate("participants", "name email role profileImage currentPosition location lastSeen");
+
+    const candidateRole =
+      profile.preferredRole ||
+      profile.seeker.currentPosition ||
+      profile.seeker.jobRole ||
+      profile.seeker.jobCategory ||
+      "";
+
+    const hireInvite = {
+      title,
+      budget: String(req.body.budget || "").trim(),
+      startDate: String(req.body.startDate || "").trim(),
+      timeline: String(req.body.timeline || "").trim(),
+      note: String(req.body.note || "").trim(),
+      candidateName: profile.seeker.name || "",
+      candidateRole,
+      expertiseProfileId: profile._id,
+      status: "pending"
+    };
+
+    const message = await Message.create({
+      conversation: conversation._id,
+      sender: req.user._id,
+      text: `Hire invite: ${title}`,
+      type: "hire_invite",
+      hireInvite,
+      seenBy: [req.user._id]
+    });
+
+    await message.populate("sender", "name");
+
+    conversation.lastMessageText = `Hire invite: ${title}`;
+    conversation.lastMessageType = "hire_invite";
+    conversation.lastMessageSender = req.user._id;
+    conversation.lastMessageAt = new Date();
+    await conversation.save();
+
+    const serialized = serializeMessage(message, req.user._id);
+
+    emitConversationMessage({
+      conversationId: String(conversation._id),
+      message: serialized,
+      participants: conversation.participants.map((participant) => String(participant._id))
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: serialized,
+      conversation: serializeConversation(conversation, req.user._id)
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateHireInviteStatus = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const status = String(req.body.status || "").trim().toLowerCase();
+
+    if (!["accepted", "declined"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid invite status" });
+    }
+
+    const message = await Message.findById(messageId).populate("sender", "name");
+    if (!message || message.type !== "hire_invite") {
+      return res.status(404).json({ success: false, message: "Hire invite not found" });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: message.conversation,
+      participants: req.user._id
+    }).populate("participants", "_id name email role profileImage currentPosition location lastSeen");
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: "Conversation not found" });
+    }
+
+    if (String(message.sender?._id || message.sender) === String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "Invite sender cannot update invite status" });
+    }
+
+    message.hireInvite = {
+      ...(message.hireInvite?.toObject ? message.hireInvite.toObject() : message.hireInvite || {}),
+      status
+    };
+    await message.save();
+    await message.populate("sender", "name");
+
+    conversation.lastMessageText = `Hire invite ${status}: ${message.hireInvite?.title || "Hiring proposal"}`;
+    conversation.lastMessageType = "hire_invite";
+    conversation.lastMessageAt = new Date();
+    await conversation.save();
+
+    const serialized = serializeMessage(message, req.user._id);
+
+    emitConversationMessage({
+      conversationId: String(conversation._id),
+      message: serialized,
+      participants: conversation.participants.map((participant) => String(participant._id))
+    });
+
+    return res.json({
+      success: true,
+      message: serialized,
+      conversation: serializeConversation(conversation, req.user._id)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
