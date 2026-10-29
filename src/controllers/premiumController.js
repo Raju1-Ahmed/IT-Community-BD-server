@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import PremiumProfile from "../models/PremiumProfile.js";
 import PremiumPayment from "../models/PremiumPayment.js";
 import ResumeView from "../models/ResumeView.js";
@@ -257,7 +258,11 @@ export const uploadPremiumDocuments = async (req, res) => {
   try {
     const profile = await getOrCreatePremiumProfile(req.user._id);
 
-    const filePath = (file) => (file ? `/uploads/premium/${file.filename}` : null);
+    const filePath = async (file) => {
+      if (!file) return null;
+      const fileBuffer = await readFile(file.path);
+      return `data:${file.mimetype};base64,${fileBuffer.toString("base64")}`;
+    };
 
     const filesArray = Array.isArray(req.files) ? req.files : [];
     const getByField = (fieldName) => {
@@ -272,10 +277,10 @@ export const uploadPremiumDocuments = async (req, res) => {
     const companyIdCard = getByField("companyIdCard");
     const additionalDoc = getByField("additionalDoc");
 
-    if (cv) profile.cvUrl = filePath(cv);
-    if (experienceLetter) profile.experienceLetterUrl = filePath(experienceLetter);
-    if (companyIdCard) profile.companyIdCardUrl = filePath(companyIdCard);
-    if (additionalDoc) profile.additionalDocUrl = filePath(additionalDoc);
+    if (cv) profile.cvUrl = await filePath(cv);
+    if (experienceLetter) profile.experienceLetterUrl = await filePath(experienceLetter);
+    if (companyIdCard) profile.companyIdCardUrl = await filePath(companyIdCard);
+    if (additionalDoc) profile.additionalDocUrl = await filePath(additionalDoc);
 
     const certFiles = filesArray.filter((file) => file.fieldname.startsWith("courseInternCertificate_"));
     if (certFiles.length > 0) {
@@ -293,7 +298,7 @@ export const uploadPremiumDocuments = async (req, res) => {
         if (!items[idx]) {
           items[idx] = { type: "Course", name: "", duration: "", certificate: "" };
         }
-        items[idx].certificate = filePath(certFile);
+        items[idx].certificate = await filePath(certFile);
       }
 
       profile.coursesOrInternships = items;
@@ -495,9 +500,6 @@ export const getExpertiseProfileById = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
 
 
 
