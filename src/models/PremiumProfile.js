@@ -12,7 +12,10 @@ const experienceSchema = new mongoose.Schema(
     endDate: { type: Date },
     responsibilities: { type: String, trim: true },
     areaOfExpertise: { type: String, trim: true },
-    companyLocation: { type: String, trim: true }
+    companyLocation: { type: String, trim: true },
+    companyClearanceUrl: { type: String, trim: true },
+    companyIdCardUrl: { type: String, trim: true },
+    appointmentLetterUrl: { type: String, trim: true }
   },
   { _id: false }
 );

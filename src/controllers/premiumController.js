@@ -282,6 +282,24 @@ export const uploadPremiumDocuments = async (req, res) => {
     if (companyIdCard) profile.companyIdCardUrl = await filePath(companyIdCard);
     if (additionalDoc) profile.additionalDocUrl = await filePath(additionalDoc);
 
+    const experienceFiles = filesArray.filter((file) => file.fieldname.startsWith("experience_"));
+    for (const experienceFile of experienceFiles) {
+      const match = experienceFile.fieldname.match(/^experience_(\d+)_(companyClearance|companyIdCard|appointmentLetter)$/);
+      if (!match) continue;
+
+      const experienceIndex = Number.parseInt(match[1], 10);
+      const fieldName = `${match[2]}Url`;
+      const experienceItems = Array.isArray(profile.experienceHistory) ? profile.experienceHistory : [];
+      if (!experienceItems[experienceIndex]) continue;
+
+      experienceItems[experienceIndex][fieldName] = await filePath(experienceFile);
+      if (experienceIndex === 0) {
+        if (fieldName === "companyClearanceUrl") profile.cvUrl = experienceItems[experienceIndex][fieldName];
+        if (fieldName === "companyIdCardUrl") profile.experienceLetterUrl = experienceItems[experienceIndex][fieldName];
+        if (fieldName === "appointmentLetterUrl") profile.companyIdCardUrl = experienceItems[experienceIndex][fieldName];
+      }
+    }
+
     const certFiles = filesArray.filter((file) => file.fieldname.startsWith("courseInternCertificate_"));
     if (certFiles.length > 0) {
       const items = Array.isArray(profile.coursesOrInternships)
@@ -323,7 +341,13 @@ export const submitPremiumProfile = async (req, res) => {
       });
     }
 
-    if (!profile.cvUrl || !profile.experienceLetterUrl || !profile.companyIdCardUrl) {
+    const experienceDocumentsComplete = Array.isArray(profile.experienceHistory) && profile.experienceHistory.length > 0
+      ? profile.experienceHistory.every(
+          (item) => item.companyClearanceUrl && item.companyIdCardUrl && item.appointmentLetterUrl
+        )
+      : profile.cvUrl && profile.experienceLetterUrl && profile.companyIdCardUrl;
+
+    if (!experienceDocumentsComplete) {
       return res.status(400).json({
         success: false,
         message: "CV, experience letter, and company ID card are required"
