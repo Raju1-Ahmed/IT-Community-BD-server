@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import User from "../models/User.js";
 import { generateToken } from "../utils/generateToken.js";
 
@@ -142,7 +143,8 @@ export const updateProfile = async (req, res) => {
     }
 
     if (req.file) {
-      payload.profileImage = `/uploads/profiles/${req.file.filename}`;
+      const imageBuffer = await readFile(req.file.path);
+      payload.profileImage = `data:${req.file.mimetype};base64,${imageBuffer.toString("base64")}`;
     }
 
     if (typeof payload.skills === "string") {
