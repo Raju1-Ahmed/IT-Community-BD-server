@@ -164,7 +164,7 @@ export const getJobs = async (req, res) => {
     if (genderPreference) filter.genderPreference = genderPreference;
 
     const jobs = await Job.find(filter)
-      .populate("postedBy", "name email role companyName")
+      .populate("postedBy", "name email role companyName profileImage")
       .sort({ createdAt: -1 });
 
     return res.json({ success: true, count: jobs.length, jobs });
@@ -175,7 +175,7 @@ export const getJobs = async (req, res) => {
 
 export const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate("postedBy", "name email role companyName");
+    const job = await Job.findById(req.params.id).populate("postedBy", "name email role companyName profileImage");
 
     if (!job) {
       return res.status(404).json({ success: false, message: "Job not found" });
