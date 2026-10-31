@@ -130,6 +130,29 @@ export const initSocketServer = (httpServer) => {
       });
     });
 
+    const emitCallSignal = async (event, payload = {}) => {
+      const { conversationId, targetUserId, callId } = payload;
+      if (!conversationId || !targetUserId || !callId) return;
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: { $all: [socket.user._id, targetUserId] }
+      }).select("_id");
+      if (!conversation) return;
+      ioInstance.to(`user:${targetUserId}`).emit(event, {
+        ...payload,
+        fromUserId: String(socket.user._id),
+        fromUserName: socket.user.name
+      });
+    };
+
+    socket.on("call:invite", (payload) => emitCallSignal("call:incoming", payload));
+    socket.on("call:accept", (payload) => emitCallSignal("call:accepted", payload));
+    socket.on("call:offer", (payload) => emitCallSignal("call:offer", payload));
+    socket.on("call:answer", (payload) => emitCallSignal("call:answer", payload));
+    socket.on("call:ice", (payload) => emitCallSignal("call:ice", payload));
+    socket.on("call:reject", (payload) => emitCallSignal("call:rejected", payload));
+    socket.on("call:end", (payload) => emitCallSignal("call:ended", payload));
+
     socket.on("message:seen", async ({ conversationId }) => {
       if (!conversationId) return;
       const conversation = await Conversation.findOne({
