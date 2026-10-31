@@ -145,13 +145,13 @@ export const initSocketServer = (httpServer) => {
       });
     };
 
-    socket.on("call:invite", (payload) => emitCallSignal("call:incoming", payload));
-    socket.on("call:accept", (payload) => emitCallSignal("call:accepted", payload));
-    socket.on("call:offer", (payload) => emitCallSignal("call:offer", payload));
-    socket.on("call:answer", (payload) => emitCallSignal("call:answer", payload));
-    socket.on("call:ice", (payload) => emitCallSignal("call:ice", payload));
-    socket.on("call:reject", (payload) => emitCallSignal("call:rejected", payload));
-    socket.on("call:end", (payload) => emitCallSignal("call:ended", payload));
+    socket.on("call:invite", (payload) => emitCallSignal("call:incoming", payload).catch(() => {}));
+    socket.on("call:accept", (payload) => emitCallSignal("call:accepted", payload).catch(() => {}));
+    socket.on("call:offer", (payload) => emitCallSignal("call:offer", payload).catch(() => {}));
+    socket.on("call:answer", (payload) => emitCallSignal("call:answer", payload).catch(() => {}));
+    socket.on("call:ice", (payload) => emitCallSignal("call:ice", payload).catch(() => {}));
+    socket.on("call:reject", (payload) => emitCallSignal("call:rejected", payload).catch(() => {}));
+    socket.on("call:end", (payload) => emitCallSignal("call:ended", payload).catch(() => {}));
 
     socket.on("message:seen", async ({ conversationId }) => {
       if (!conversationId) return;
