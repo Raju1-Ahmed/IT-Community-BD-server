@@ -24,20 +24,27 @@ const serializeParticipant = (user) => ({
   lastSeen: user.lastSeen || null
 });
 
-const serializeMessage = (message, currentUserId) => ({
+const serializeMessage = (message, currentUserId) => {
+  const senderId = String(message.sender?._id || message.sender);
+  const seenBy = Array.isArray(message.seenBy) ? message.seenBy : [];
+
+  return {
   id: String(message._id),
   conversationId: String(message.conversation),
-  senderId: String(message.sender?._id || message.sender),
+  senderId,
   senderName: message.sender?.name || "",
   text: message.text || "",
   type: message.type || "text",
   attachments: Array.isArray(message.attachments) ? message.attachments.map(toAbsoluteAttachment) : [],
   hireInvite: message.hireInvite || null,
-  seen: Array.isArray(message.seenBy)
-    ? message.seenBy.some((item) => String(item?._id || item) === String(currentUserId))
-    : false,
+  // A sender's message is "seen" only after another participant has opened it.
+  // The sender itself is added to seenBy at creation time and must not trigger Seen.
+  seen: senderId === String(currentUserId)
+    ? seenBy.some((item) => String(item?._id || item) !== senderId)
+    : seenBy.some((item) => String(item?._id || item) === String(currentUserId)),
   createdAt: message.createdAt
-});
+  };
+};
 
 const serializeConversation = (conversation, currentUserId) => {
   const participant = resolveOtherParticipant(conversation, currentUserId) || conversation.participants[0];

@@ -132,7 +132,13 @@ export const initSocketServer = (httpServer) => {
 
     socket.on("message:seen", async ({ conversationId }) => {
       if (!conversationId) return;
-      await Message.updateMany(
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: socket.user._id
+      }).select("_id");
+      if (!conversation) return;
+
+      const result = await Message.updateMany(
         {
           conversation: conversationId,
           sender: { $ne: socket.user._id },
@@ -141,10 +147,12 @@ export const initSocketServer = (httpServer) => {
         { $addToSet: { seenBy: socket.user._id } }
       );
 
-      ioInstance.to(`conversation:${conversationId}`).emit("message:seen", {
-        conversationId,
-        userId: String(socket.user._id)
-      });
+      if (result.modifiedCount > 0) {
+        ioInstance.to(`conversation:${conversationId}`).emit("message:seen", {
+          conversationId,
+          userId: String(socket.user._id)
+        });
+      }
     });
 
     socket.on("disconnect", async () => {
@@ -170,5 +178,12 @@ export const emitConversationMessage = ({ conversationId, message, participants 
       conversationId,
       message
     });
+
+    if (String(participantId) !== String(message?.senderId || "")) {
+      ioInstance.to(`user:${participantId}`).emit("message:notification", {
+        conversationId,
+        message
+      });
+    }
   });
 };
