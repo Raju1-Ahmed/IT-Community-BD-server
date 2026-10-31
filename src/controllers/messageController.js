@@ -46,8 +46,13 @@ const serializeMessage = (message, currentUserId) => {
   };
 };
 
-const serializeConversation = (conversation, currentUserId) => {
+const serializeConversation = async (conversation, currentUserId) => {
   const participant = resolveOtherParticipant(conversation, currentUserId) || conversation.participants[0];
+  const unreadCount = await Message.countDocuments({
+    conversation: conversation._id,
+    sender: { $ne: currentUserId },
+    seenBy: { $ne: currentUserId }
+  });
 
   return {
     id: String(conversation._id),
@@ -55,7 +60,7 @@ const serializeConversation = (conversation, currentUserId) => {
     lastMessageText: conversation.lastMessageText || "",
     lastMessageType: conversation.lastMessageType || "text",
     lastMessageAt: conversation.lastMessageAt,
-    unreadCount: 0
+    unreadCount
   };
 };
 
@@ -73,7 +78,7 @@ export const listConversations = async (req, res) => {
       .populate("participants", "name email role profileImage currentPosition location lastSeen")
       .sort({ lastMessageAt: -1, updatedAt: -1 });
 
-    const items = conversations.map((conversation) => serializeConversation(conversation, req.user._id));
+    const items = await Promise.all(conversations.map((conversation) => serializeConversation(conversation, req.user._id)));
 
     return res.json({ success: true, conversations: items });
   } catch (error) {
@@ -280,7 +285,7 @@ export const sendHireInvite = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: serialized,
-      conversation: serializeConversation(conversation, req.user._id)
+      conversation: await serializeConversation(conversation, req.user._id)
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -337,7 +342,7 @@ export const updateHireInviteStatus = async (req, res) => {
     return res.json({
       success: true,
       message: serialized,
-      conversation: serializeConversation(conversation, req.user._id)
+      conversation: await serializeConversation(conversation, req.user._id)
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
