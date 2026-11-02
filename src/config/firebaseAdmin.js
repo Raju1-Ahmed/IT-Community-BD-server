@@ -10,6 +10,8 @@ const getServiceAccount = () => {
   const jsonValue = firstEnv(
     "FIREBASE_SERVICE_ACCOUNT_JSON",
     "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON",
+    "FIREBASE_SERVICE_ACCOUNT",
+    "FIREBASE_ADMIN_SDK_JSON",
     "GOOGLE_APPLICATION_CREDENTIALS_JSON"
   );
   if (jsonValue) {
@@ -20,11 +22,11 @@ const getServiceAccount = () => {
     }
   }
 
-  const clientEmail = firstEnv("FIREBASE_CLIENT_EMAIL", "FIREBASE_ADMIN_CLIENT_EMAIL");
-  const privateKey = firstEnv("FIREBASE_PRIVATE_KEY", "FIREBASE_ADMIN_PRIVATE_KEY");
+  const clientEmail = firstEnv("FIREBASE_CLIENT_EMAIL", "FIREBASE_ADMIN_CLIENT_EMAIL", "client_email");
+  const privateKey = firstEnv("FIREBASE_PRIVATE_KEY", "FIREBASE_ADMIN_PRIVATE_KEY", "private_key");
   if (clientEmail && privateKey) {
     return {
-      projectId: firstEnv("FIREBASE_PROJECT_ID", "FIREBASE_ADMIN_PROJECT_ID", "GOOGLE_CLOUD_PROJECT"),
+      projectId: firstEnv("FIREBASE_PROJECT_ID", "FIREBASE_ADMIN_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "project_id"),
       clientEmail,
       privateKey: privateKey.replace(/\\n/g, "\n")
     };
