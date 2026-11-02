@@ -4,31 +4,43 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const firstEnv = (...names) => names.map((name) => process.env[name]).find(Boolean);
+
 const getServiceAccount = () => {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const jsonValue = firstEnv(
+    "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON",
+    "GOOGLE_APPLICATION_CREDENTIALS_JSON"
+  );
+  if (jsonValue) {
+    try {
+      return JSON.parse(jsonValue);
+    } catch (_error) {
+      throw new Error("Firebase service-account JSON is invalid");
+    }
   }
 
-  if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+  const clientEmail = firstEnv("FIREBASE_CLIENT_EMAIL", "FIREBASE_ADMIN_CLIENT_EMAIL");
+  const privateKey = firstEnv("FIREBASE_PRIVATE_KEY", "FIREBASE_ADMIN_PRIVATE_KEY");
+  if (clientEmail && privateKey) {
     return {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+      projectId: firstEnv("FIREBASE_PROJECT_ID", "FIREBASE_ADMIN_PROJECT_ID", "GOOGLE_CLOUD_PROJECT"),
+      clientEmail,
+      privateKey: privateKey.replace(/\\n/g, "\n")
     };
   }
 
   return null;
 };
 
-const serviceAccount = getServiceAccount();
-
-if (serviceAccount && getApps().length === 0) {
-  initializeApp({ credential: cert(serviceAccount) });
-}
-
 export const firebaseAdminAuth = () => {
-  if (getApps().length === 0) {
-    throw new Error("Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or Firebase service account variables.");
+  if (getApps().length > 0) return getAuth();
+
+  const serviceAccount = getServiceAccount();
+  if (!serviceAccount?.projectId || !serviceAccount?.clientEmail || !serviceAccount?.privateKey) {
+    throw new Error("Firebase Admin is not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY to Render.");
   }
+
+  initializeApp({ credential: cert(serviceAccount) });
   return getAuth();
 };
