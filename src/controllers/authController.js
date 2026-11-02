@@ -76,7 +76,7 @@ export const firebaseLogin = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid or expired Firebase token" });
     }
     if (error?.message?.startsWith("Firebase Admin is not configured")) {
-      return res.status(503).json({ success: false, message: "Social login is not configured on the server" });
+      return res.status(503).json({ success: false, message: error.message });
     }
     return res.status(500).json({ success: false, message: error.message });
   }
