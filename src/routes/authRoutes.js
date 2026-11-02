@@ -1,5 +1,5 @@
 import express from "express";
-import { getMe, login, register, updateProfile } from "../controllers/authController.js";
+import { firebaseLogin, getMe, login, register, updateProfile } from "../controllers/authController.js";
 import { authorize, protect } from "../middleware/authMiddleware.js";
 import { profileImageUpload } from "../middleware/uploadMiddleware.js";
 
@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/firebase", firebaseLogin);
 router.get("/me", protect, getMe);
 router.patch(
   "/profile",

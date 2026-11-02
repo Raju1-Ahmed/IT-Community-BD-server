@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
+import crypto from "node:crypto";
 import User from "../models/User.js";
 import { generateToken } from "../utils/generateToken.js";
+import { firebaseAdminAuth } from "../config/firebaseAdmin.js";
 
 const serializeUser = (user) => ({
   id: user._id,
@@ -32,6 +34,53 @@ const serializeUser = (user) => ({
   volunteer: user.volunteer,
   categoryProfile: user.categoryProfile
 });
+
+export const firebaseLogin = async (req, res) => {
+  try {
+    const { idToken, role } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: "Firebase ID token is required" });
+    }
+
+    const decoded = await firebaseAdminAuth().verifyIdToken(idToken);
+    const email = decoded.email?.trim().toLowerCase();
+    if (!email || !decoded.email_verified) {
+      return res.status(401).json({ success: false, message: "A verified Firebase email is required" });
+    }
+
+    const provider = decoded.firebase?.sign_in_provider;
+    const authProvider = ["google.com", "github.com"].includes(provider) ? provider : "google.com";
+    let user = await User.findOne({ $or: [{ firebaseUid: decoded.uid }, { email }] });
+
+    if (!user) {
+      user = await User.create({
+        name: decoded.name || email.split("@")[0],
+        email,
+        password: crypto.randomBytes(32).toString("hex"),
+        role: role === "employer" ? "employer" : "seeker",
+        firebaseUid: decoded.uid,
+        authProvider,
+        profileImage: decoded.picture || ""
+      });
+    } else {
+      user.firebaseUid = decoded.uid;
+      user.authProvider = authProvider;
+      if (!user.profileImage && decoded.picture) user.profileImage = decoded.picture;
+      if (!user.name && decoded.name) user.name = decoded.name;
+      await user.save();
+    }
+
+    return res.json({ success: true, token: generateToken(user._id), user: serializeUser(user) });
+  } catch (error) {
+    if (error?.code === "auth/id-token-expired" || error?.code === "auth/argument-error") {
+      return res.status(401).json({ success: false, message: "Invalid or expired Firebase token" });
+    }
+    if (error?.message?.startsWith("Firebase Admin is not configured")) {
+      return res.status(503).json({ success: false, message: "Social login is not configured on the server" });
+    }
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const register = async (req, res) => {
   try {
