@@ -1,8 +1,11 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-dotenv.config();
+const currentFileDirectory = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(currentFileDirectory, "../../.env") });
 
 const firstEnv = (...names) => names.map((name) => process.env[name]).find(Boolean);
 
