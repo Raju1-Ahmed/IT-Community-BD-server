@@ -146,6 +146,7 @@ export const getMyPremiumProfile = async (req, res) => {
 export const upsertMyPremiumProfile = async (req, res) => {
   try {
     await expirePremiumProfiles();
+    const existingProfile = await getOrCreatePremiumProfile(req.user._id);
 
     const payload = {
       headline: req.body.headline,
@@ -213,7 +214,17 @@ export const upsertMyPremiumProfile = async (req, res) => {
         const parsed = typeof req.body.experienceHistory === "string"
           ? JSON.parse(req.body.experienceHistory)
           : req.body.experienceHistory;
-        payload.experienceHistory = Array.isArray(parsed) ? parsed : [];
+        const incomingExperiences = Array.isArray(parsed) ? parsed : [];
+        const existingExperiences = Array.isArray(existingProfile.experienceHistory)
+          ? existingProfile.experienceHistory.map((item) => (typeof item?.toObject === "function" ? item.toObject() : { ...item }))
+          : [];
+        payload.experienceHistory = incomingExperiences.map((item, index) => ({
+          ...(existingExperiences[index] || {}),
+          ...(item || {}),
+          companyClearanceUrl: item?.companyClearanceUrl || existingExperiences[index]?.companyClearanceUrl,
+          companyIdCardUrl: item?.companyIdCardUrl || existingExperiences[index]?.companyIdCardUrl,
+          appointmentLetterUrl: item?.appointmentLetterUrl || existingExperiences[index]?.appointmentLetterUrl
+        }));
       } catch (_error) {
         payload.experienceHistory = [];
       }
@@ -224,14 +235,17 @@ export const upsertMyPremiumProfile = async (req, res) => {
         const parsed = typeof req.body.coursesOrInternships === "string"
           ? JSON.parse(req.body.coursesOrInternships)
           : req.body.coursesOrInternships;
-        payload.coursesOrInternships = Array.isArray(parsed)
-          ? parsed.map((item) => ({
+        const incomingCourses = Array.isArray(parsed) ? parsed : [];
+        const existingCourses = Array.isArray(existingProfile.coursesOrInternships)
+          ? existingProfile.coursesOrInternships.map((item) => (typeof item?.toObject === "function" ? item.toObject() : { ...item }))
+          : [];
+        payload.coursesOrInternships = incomingCourses.map((item, index) => ({
+              ...(existingCourses[index] || {}),
               type: String(item?.type || "Course").trim() || "Course",
               name: String(item?.name || "").trim(),
               duration: String(item?.duration || "").trim(),
-              certificate: String(item?.certificate || "").trim()
-            }))
-          : [];
+              certificate: String(item?.certificate || existingCourses[index]?.certificate || "").trim()
+            }));
       } catch (_error) {
         payload.coursesOrInternships = [];
       }
@@ -299,6 +313,8 @@ export const uploadPremiumDocuments = async (req, res) => {
         if (fieldName === "appointmentLetterUrl") profile.companyIdCardUrl = experienceItems[experienceIndex][fieldName];
       }
     }
+
+    if (experienceFiles.length > 0) profile.markModified("experienceHistory");
 
     const certFiles = filesArray.filter((file) => file.fieldname.startsWith("courseInternCertificate_"));
     if (certFiles.length > 0) {
