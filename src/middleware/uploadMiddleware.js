@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
+import crypto from "node:crypto";
 
 const uploadDir = path.join(process.cwd(), "uploads", "profiles");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -10,21 +11,20 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.-]/g, "");
-    cb(null, `${req.user._id}-${Date.now()}-${safeName}`);
+    cb(null, `${req.user._id}-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`);
   }
 });
 
 const fileFilter = (_req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
+  if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
     cb(null, true);
     return;
   }
-  cb(new Error("Only image files are allowed"));
+  cb(new Error("Only JPG, PNG, or WebP images are allowed"));
 };
 
 export const profileImageUpload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 3 * 1024 * 1024 }
+  limits: { fileSize: 3 * 1024 * 1024, files: 1 }
 });

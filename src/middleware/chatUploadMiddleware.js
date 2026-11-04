@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
+import crypto from "node:crypto";
 
 const uploadDir = path.join(process.cwd(), "uploads", "chat");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -10,12 +11,18 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.-]/g, "");
-    cb(null, `${req.user._id}-${Date.now()}-${safeName}`);
+    cb(null, `${req.user._id}-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`);
   }
 });
 
 export const chatAttachmentUpload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/pdf", "image/jpeg", "image/png", "image/webp",
+      "text/plain", "audio/mpeg", "audio/webm", "video/mp4", "video/webm"
+    ];
+    cb(allowed.includes(file.mimetype) ? null : new Error("This attachment type is not allowed"));
+  },
+  limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 10, parts: 12 }
 });

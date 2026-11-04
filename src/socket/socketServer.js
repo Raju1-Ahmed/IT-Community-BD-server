@@ -66,8 +66,9 @@ const emitPresenceToContacts = async (userId, isOnline) => {
 
 export const initSocketServer = (httpServer) => {
   ioInstance = new Server(httpServer, {
+    maxHttpBufferSize: 1e6,
     cors: {
-      origin: [process.env.CLIENT_URL, "http://localhost:5173", "http://127.0.0.1:5173"],
+      origin: [process.env.CLIENT_URL, "https://it-community-bd-frontend.netlify.app"].filter(Boolean),
       credentials: true
     }
   });
