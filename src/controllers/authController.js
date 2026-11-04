@@ -139,7 +139,13 @@ export const register = async (req, res) => {
     pending.otpSentAt = new Date();
     pending.expiresAt = new Date(Date.now() + OTP_TTL_MS);
     await pending.save();
-    await sendRegistrationOtp({ email: normalizedEmail, name: normalizedName, otp });
+    try {
+      await sendRegistrationOtp({ email: normalizedEmail, name: normalizedName, otp });
+    } catch (mailError) {
+      await PendingRegistration.deleteOne({ _id: pending._id });
+      console.error("Registration OTP email error:", mailError.message);
+      return res.status(503).json({ success: false, message: "Verification email could not be sent. Please try again later." });
+    }
 
     return res.status(202).json({ success: true, verificationRequired: true, email: normalizedEmail, message: "Verification code sent to your email" });
   } catch (error) {
@@ -210,7 +216,12 @@ export const resendRegistrationOtp = async (req, res) => {
     pending.otpSentAt = new Date();
     pending.expiresAt = new Date(Date.now() + OTP_TTL_MS);
     await pending.save();
-    await sendRegistrationOtp({ email: pending.email, name: pending.name, otp });
+    try {
+      await sendRegistrationOtp({ email: pending.email, name: pending.name, otp });
+    } catch (mailError) {
+      console.error("OTP resend email error:", mailError.message);
+      return res.status(503).json({ success: false, message: "Verification email could not be sent. Please try again later." });
+    }
     return res.json({ success: true, message: "A new verification code was sent" });
   } catch (error) {
     if (error?.message?.startsWith("Registration email is not configured")) {
