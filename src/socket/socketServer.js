@@ -68,7 +68,11 @@ export const initSocketServer = (httpServer) => {
   ioInstance = new Server(httpServer, {
     maxHttpBufferSize: 1e6,
     cors: {
-      origin: [process.env.CLIENT_URL, "https://it-community-bd-frontend.netlify.app"].filter(Boolean),
+      origin: [
+        process.env.CLIENT_URL,
+        "https://it-community-bd-frontend.netlify.app",
+        "https://itcommunitybd.netlify.app"
+      ].filter(Boolean),
       credentials: true
     }
   });

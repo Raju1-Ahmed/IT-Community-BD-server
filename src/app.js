@@ -16,6 +16,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 const allowedOrigins = new Set([
   process.env.CLIENT_URL,
   "https://it-community-bd-frontend.netlify.app",
+  "https://itcommunitybd.netlify.app",
   "https://it-community-bd-admin.netlify.app",
   ...(process.env.NODE_ENV === "production"
     ? []
